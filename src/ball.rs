@@ -60,7 +60,7 @@ fn spawn_ball(
 
     let parent = parent.single();
     
-    let shape = Mesh2dHandle(meshes.add(Circle{radius: 10.0}));
+    let shape = Mesh2dHandle(meshes.add(Circle{radius: BALL_SIZE/2.0}));
     let color = Color::rgb(rand::thread_rng().gen_range(0.0..1.0), rand::thread_rng().gen_range(0.0..1.0), rand::thread_rng().gen_range(0.0..1.0));
 
     // Spawns the ball 
@@ -76,7 +76,7 @@ fn spawn_ball(
                 ..default()
             },
             Ball{
-                size: 10.0,
+                size: BALL_SIZE/2.0,
                 pos: Vec3::new(0.0, 180.0, 0.0),
                 velocity: Vec3::new(10.0,10.0,0.0),
                 elasticity: 0.3,
@@ -233,7 +233,7 @@ fn vec2d_to_index(
     return BALL_CHUNK_ARRAY_DIM.x * y + x;
 }
 
-const BALL_CHUNK_ARRAY_DIM: IVec3 = IVec3::new(65, 37, 0);
+const BALL_CHUNK_ARRAY_DIM: IVec3 = IVec3::new((SCREENSIZE.x as i32)/CHUNK_SIZE + 1, (SCREENSIZE.y as i32)/CHUNK_SIZE + 1, 0);
 const BALL_CHUNK_ARRAY_LENGTH: usize = (BALL_CHUNK_ARRAY_DIM.x * BALL_CHUNK_ARRAY_DIM.y + BALL_CHUNK_ARRAY_DIM.x) as usize;
 
 fn in_bounds(
@@ -290,11 +290,10 @@ fn ball_collision_physics_optimised(
                         
                         let ball_rel_vec:Vec3 = ballObject1.pos - ballObject2.pos;
                         
-                        // if ball_rel_vec.length() == 0.0{
-                        //     // continue;
-                        //     ballObject1.pos += Vec3::new(rand::thread_rng().gen_range(0.0..1.0), 0.0, 0.0);
-                        //     continue;
-                        // }
+                        if ball_rel_vec.length() == 0.0{
+                            ballObject1.pos += Vec3::new(rand::thread_rng().gen_range(0.0..1.0), 0.0, 0.0);
+                            continue;
+                        }
                         
                         // info!("COLLISION HERE");
                         
