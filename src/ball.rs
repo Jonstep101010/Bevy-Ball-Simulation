@@ -171,8 +171,8 @@ fn container_collision(
     mut ballObjectQuery: &mut Query<&mut Ball>,
 ){
     for mut ballObject in ballObjectQuery{
-        if ballObject.pos.y - ballObject.size < -HALF_DIM.y + 100.0{
-            ballObject.pos.y = -HALF_DIM.y + ballObject.size + 100.0;
+        if ballObject.pos.y - ballObject.size < -HALF_DIM.y{
+            ballObject.pos.y = -HALF_DIM.y + ballObject.size;
             ballObject.velocity.y = -ballObject.velocity.y * ballObject.elasticity;
         }
 
@@ -185,8 +185,8 @@ fn container_collision(
             ballObject.pos.x = HALF_DIM.x - ballObject.size;
             ballObject.velocity.x = -ballObject.velocity.x * ballObject.elasticity;
         }
-        else if ballObject.pos.x - ballObject.size < -HALF_DIM.x + 100.0{
-            ballObject.pos.x = -HALF_DIM.x + ballObject.size + 100.0;
+        else if ballObject.pos.x - ballObject.size < -HALF_DIM.x{
+            ballObject.pos.x = -HALF_DIM.x + ballObject.size;
             ballObject.velocity.x = -ballObject.velocity.x * ballObject.elasticity;
         }
     }
@@ -262,10 +262,17 @@ fn ball_collision_physics_optimised(
         let chunk_pos: IVec3 = screen_pos / CHUNK_SIZE;
         let chunk_index: usize = vec2d_to_index(&chunk_pos) as usize;
         
+        let mut temp_pos: Vec3 = ballObject1.pos;
+        let mut temp_vec: Vec3 = ballObject1.velocity;
+        // THE ISSUE IS DUE TO THE ORDER OF THIS 
+
         for x in  -1..2{
             for y in -1..2{
-                let offsetVec: IVec3 = IVec3::new(x, y, 0);
+                
+                let offsetVec: IVec3 = IVec3::new(-x, -y, 0);
                 let check_chunk_pos: IVec3 = chunk_pos + offsetVec;
+
+                // info!("{} {} {}", check_chunk_pos, ballObject1.pos, chunk_pos);
                 
                 if !in_bounds(&check_chunk_pos){
                     continue;
@@ -298,11 +305,14 @@ fn ball_collision_physics_optimised(
                         let d1: Vec3 = ball_rel_vec_normalised * (rel_distance/2.0);
                         let d2: Vec3 = ball_rel_vec_normalised * rel_distance * average_elastivity * 10.0;
         
-                        ballObject1.pos += d1;
+                        // ballObject1.pos += d1;
                         // ballObject2.pos -= d1;
         
-                        ballObject1.velocity += d2;
+                        // ballObject1.velocity += d2;
                         // ballObject2.velocity -= d2;
+
+                        temp_pos += d1;
+                        temp_vec += d2;
 
                         if ballObject1.pos.x.is_nan(){
                             
@@ -312,7 +322,10 @@ fn ball_collision_physics_optimised(
                 }
 
             }
-        } 
+        }
+        
+        ballObject1.pos = temp_pos;
+        ballObject1.velocity = temp_vec;
     }
 }
 
