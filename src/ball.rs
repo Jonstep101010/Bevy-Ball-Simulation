@@ -41,6 +41,7 @@ pub struct Ball{
     pub velocity : Vec3,
     pub elasticity: f32,
     pub id: i32,
+    pub pressure_stat: f32,
 }
 
 fn spawn_ball_parent(mut commands: Commands){
@@ -81,6 +82,7 @@ fn spawn_ball(
                 velocity: Vec3::new(10.0,10.0,0.0),
                 elasticity: 0.3,
                 id: rand::thread_rng().gen_range(1..=100000000),
+                pressure_stat: 0.0,
             },
             Name::new("Ball"),
         ));
@@ -90,25 +92,35 @@ fn spawn_ball(
 }
 
 fn interact(
-    mut ballObjectQuery: Query<&mut Ball>,
+    mut commands: Commands,
+    parent: Query<Entity, With<BallParent>>,
+    mut ballObjectQuery: Query<(Entity, &mut Ball,  &mut Handle<ColorMaterial>)>,
     time: Res<Time>,
     q_windows: Query<&Window, With<PrimaryWindow>>,
     mouseInput: Res<ButtonInput<MouseButton>>,
     keyInput: Res<ButtonInput<KeyCode>>,
+    mut materials: ResMut<Assets<ColorMaterial>>
 ){
+    let parent = parent.single();
+
+    let mut position = Vec3::new(0.0, 0.0, 0.0);
+
+    if let Some(mouse_position) = q_windows.single().cursor_position() {
+        // println!("Cursor is inside the primary window, at {:?}", position);
+        position = Vec3::new(mouse_position.x, mouse_position.y, 0.0);
+    } else {
+        // println!("Cursor is not in the game window.");
+    }
+    
+
+    let mut rel_position: Vec3 = position - HALF_DIM;
+    rel_position.y = -rel_position.y;
 
     if mouseInput.pressed(MouseButton::Right) {
-        let windowPosition = q_windows.single().cursor_position();
-
-        let position: Vec3 = Vec3::new(windowPosition.unwrap().x, windowPosition.unwrap().y, 0.0);
-        
-        let mut rel_position: Vec3 = position - HALF_DIM;
-        rel_position.y = -rel_position.y;
-
-        for mut ballObject in &mut ballObjectQuery{
+        for (_, mut ballObject, _) in &mut ballObjectQuery{
             let relPos = (rel_position - ballObject.pos).normalize();
             // info!("{}",relPos);
-            ballObject.velocity += relPos * 400.0 * time.delta_seconds();
+            ballObject.velocity += relPos * MOUSE_STRENGTH * time.delta_seconds();
         }
 
         let mousePosI: IVec3 = position.as_ivec3() / CHUNK_SIZE;
@@ -122,11 +134,53 @@ fn interact(
                 if !in_bounds(&check_chunk_pos){
                     continue;
                 }
-                // info!("{} {}", check_chunk_pos, vec2d_to_index(&check_chunk_pos))
+            }
+        }        
+    }
+
+    if keyInput.pressed(KeyCode::KeyS){
+        for (ball_entity, ball_struct, _) in &mut ballObjectQuery{
+            let gradient : f32 = ball_struct.velocity.length()/300.0;
+            let color = Color::rgb(gradient, gradient*0.1, gradient*0.1);
+            commands.entity(ball_entity).insert(materials.add(color));
+        }
+    }
+    
+    if keyInput.pressed(KeyCode::KeyD){
+        for (ball_entity, mut ball_struct, _) in &mut ballObjectQuery{
+            let gradient : f32 = ball_struct.pressure_stat/100.0;
+            let color = Color::rgb(gradient*0.1, gradient, gradient*0.1);
+            commands.entity(ball_entity).insert(materials.add(color));
+
+            ball_struct.pressure_stat = 0.0;
+        }
+    }
+    
+    // too much of a hassle to record original colours, so we make new ones
+    if keyInput.just_released(KeyCode::KeyS) || keyInput.just_released(KeyCode::KeyD){
+        for (ball_entity, ball_struct, _) in &mut ballObjectQuery{
+            let color = Color::rgb(rand::thread_rng().gen_range(0.0..1.0), rand::thread_rng().gen_range(0.0..1.0), rand::thread_rng().gen_range(0.0..1.0));
+            commands.entity(ball_entity).insert(materials.add(color));
+        }
+    }
+    
+
+    // remove balls (left click + backspace)
+    if mouseInput.pressed(MouseButton::Left) && keyInput.pressed(KeyCode::Backspace){
+        for (ballEntity, ballObject, _) in &mut ballObjectQuery{
+            if ballObject.pos.distance_squared(rel_position) <= REMOVE_RADIUS_SQUARED{
+                commands.entity(parent).remove_children(&[ballEntity]);
+                commands.entity(ballEntity).despawn();
             }
         }
+    }
 
-        
+    // remove all balls (shift + backspace)
+    if (keyInput.pressed(KeyCode::ShiftLeft) || keyInput.pressed(KeyCode::ShiftRight)) && keyInput.pressed(KeyCode::Backspace){
+        for (ballEntity, _, _) in &mut ballObjectQuery{
+            commands.entity(parent).remove_children(&[ballEntity]);
+            commands.entity(ballEntity).despawn();
+        }
     }
 }
 
@@ -183,11 +237,11 @@ fn container_collision(
 
         if ballObject.pos.x + ballObject.size > HALF_DIM.x{
             ballObject.pos.x = HALF_DIM.x - ballObject.size;
-            ballObject.velocity.x = -ballObject.velocity.x * ballObject.elasticity;
+            ballObject.velocity.x = -ballObject.velocity.x * ballObject.elasticity - 0.1;
         }
         else if ballObject.pos.x - ballObject.size < -HALF_DIM.x{
             ballObject.pos.x = -HALF_DIM.x + ballObject.size;
-            ballObject.velocity.x = -ballObject.velocity.x * ballObject.elasticity;
+            ballObject.velocity.x = -ballObject.velocity.x * ballObject.elasticity + 0.1;
         }
     }
 }
@@ -257,6 +311,7 @@ fn ball_collision_physics_optimised(
     }
     // info!("START COLLISION");
     for mut ballObject1 in ballObjectQuery.iter_mut(){
+
         // info!("new ball col");
         let screen_pos: IVec3 = (ballObject1.pos + HALF_DIM).as_ivec3();
         let chunk_pos: IVec3 = screen_pos / CHUNK_SIZE;
@@ -312,6 +367,8 @@ fn ball_collision_physics_optimised(
 
                         temp_pos += d1;
                         temp_vec += d2;
+
+                        ballObject1.pressure_stat += d1.length_squared();
 
                         if ballObject1.pos.x.is_nan(){
                             
