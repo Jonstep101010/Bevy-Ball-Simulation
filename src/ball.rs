@@ -12,20 +12,28 @@ use crate::settings::*;
 
 pub struct BallPlugin;
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
+pub enum SimulationState {
+    #[default]
+    Running,
+    Paused,
+}
+
 impl Plugin for BallPlugin{
     fn build(&self, app: &mut App){
         app.add_plugins((
             #[cfg(not(target_arch = "wasm32"))]
             Wireframe2dPlugin,
         ))
+            .init_state::<SimulationState>()
             .add_systems(Startup, spawn_ball_parent)
 
             .add_systems(Update, (
-                spawn_ball,
                 update_gravity_velocity,
                 update_processes,
-                interact,
-            ))
+            ).run_if(in_state(SimulationState::Running)))
+
+            .add_systems(Update, (spawn_ball, interact))
             .add_systems(Update, update_ball_draw_position)
             .register_type::<Ball>();
     }
@@ -43,6 +51,7 @@ pub struct Ball{
     pub id: i32,
     pub pressure_stat: f32,
 }
+
 
 fn spawn_ball_parent(mut commands: Commands){
     commands.spawn((SpatialBundle::default(), BallParent, Name::new("Ball Parent")));
@@ -99,7 +108,10 @@ fn interact(
     q_windows: Query<&Window, With<PrimaryWindow>>,
     mouseInput: Res<ButtonInput<MouseButton>>,
     keyInput: Res<ButtonInput<KeyCode>>,
-    mut materials: ResMut<Assets<ColorMaterial>>
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    current_state: Res<State<SimulationState>>,
+    mut next_state: ResMut<NextState<SimulationState>>
 ){
     let parent = parent.single();
 
@@ -111,10 +123,55 @@ fn interact(
     } else {
         // println!("Cursor is not in the game window.");
     }
-    
 
     let mut rel_position: Vec3 = position - HALF_DIM;
     rel_position.y = -rel_position.y;
+
+    if keyInput.just_pressed(KeyCode::KeyP){
+        next_state.set(match current_state.get() {
+            SimulationState::Running => SimulationState::Paused,
+            SimulationState::Paused => SimulationState::Running,
+        });
+    }
+
+    if mouseInput.just_pressed(MouseButton::Left){            
+        let shape = Mesh2dHandle(meshes.add(Circle{radius: BALL_SIZE/2.0}));
+        let color = Color::rgb(rand::thread_rng().gen_range(0.0..1.0), rand::thread_rng().gen_range(0.0..1.0), rand::thread_rng().gen_range(0.0..1.0));
+    
+        // Spawns the ball 
+
+        for x in -5..5{
+            for y in -5..5{
+                let ball_spawn_pos: Vec3 = rel_position + Vec3::new(x as f32, y as f32, 0.0) * BALL_SIZE;
+
+                commands.entity(parent).with_children(|commands|{
+                    commands.spawn((
+                        MaterialMesh2dBundle{
+                            mesh: shape.clone(),
+                            material: materials.add(color),
+                            transform: Transform{
+                                translation: ball_spawn_pos,
+                                ..default()
+                            },
+                            ..default()
+                        },
+                        Ball{
+                            size: BALL_SIZE/2.0,
+                            pos: ball_spawn_pos,
+                            velocity: Vec3::new(0.0, 0.0, 0.0),
+                            elasticity: 0.3,
+                            id: rand::thread_rng().gen_range(1..=100000000),
+                            pressure_stat: 0.0,
+                        },
+                        Name::new("Ball"),
+                    ));
+                });
+            }
+        }
+        
+    
+        info!("Spawned Ball Cluster");
+    }
 
     if mouseInput.pressed(MouseButton::Right) {
         for (_, mut ballObject, _) in &mut ballObjectQuery{
@@ -151,8 +208,6 @@ fn interact(
             let gradient : f32 = ball_struct.pressure_stat/100.0;
             let color = Color::rgb(gradient*0.1, gradient, gradient*0.1);
             commands.entity(ball_entity).insert(materials.add(color));
-
-            ball_struct.pressure_stat = 0.0;
         }
     }
     
@@ -189,6 +244,10 @@ fn update_processes(
     mut ballObjectQuery: Query<&mut Ball>,
     time: Res<Time>,
 ){
+    // reset the pressure stat
+    for mut ball in &mut ballObjectQuery{
+        ball.pressure_stat = 0.0;
+    }
     
     let mut i = 0;
 
