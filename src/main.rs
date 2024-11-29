@@ -4,13 +4,13 @@ use bevy::{
     prelude::*,
 };
 
-use settings::*;
-use ball::BallPlugin;
 use crate::ball::Ball;
+use ball::BallPlugin;
+use settings::*;
 
 // CRATES
-mod settings;
 mod ball;
+mod settings;
 
 #[derive(Component)]
 struct FpsText;
@@ -20,29 +20,28 @@ struct BallText;
 
 fn main() {
     App::new()
-    .add_plugins((
-        DefaultPlugins
-        .set(ImagePlugin::default_nearest())
-        .set(WindowPlugin {
-            primary_window: Some(Window{
-                title: "Ball Simulation".into(),
-                resolution: (SCREENSIZE.x, SCREENSIZE.y).into(),
-                resizable:false,
-                ..default()
-            }),
-            ..default()
-        })
-        .build(),
-        FrameTimeDiagnosticsPlugin
-    ))
-    .add_systems(Startup, setup)
-    .add_systems(Update, text_update_system)
-    .add_plugins(BallPlugin)
-    .run();
+        .add_plugins((
+            DefaultPlugins
+                .set(ImagePlugin::default_nearest())
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Ball Simulation".into(),
+                        resolution: (SCREENSIZE.x, SCREENSIZE.y).into(),
+                        resizable: false,
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .build(),
+            FrameTimeDiagnosticsPlugin,
+        ))
+        .add_systems(Startup, setup)
+        .add_systems(Update, text_update_system)
+        .add_plugins(BallPlugin)
+        .run();
 }
 
-
-fn setup(mut commands: Commands){
+fn setup(mut commands: Commands) {
     let camera = Camera2dBundle::default();
     commands.spawn(camera);
 
@@ -55,13 +54,11 @@ fn setup(mut commands: Commands){
                     ..default()
                 },
             ),
-            TextSection::from_style(
-                TextStyle {
-                    font_size: 30.0,
-                    color: GOLD.into(),
-                    ..default()
-                }
-            ),
+            TextSection::from_style(TextStyle {
+                font_size: 30.0,
+                color: GOLD.into(),
+                ..default()
+            }),
         ]),
         FpsText,
     ));
@@ -75,13 +72,11 @@ fn setup(mut commands: Commands){
                     ..default()
                 },
             ),
-            TextSection::from_style(
-                TextStyle {
-                    font_size: 30.0,
-                    color: GOLD.into(),
-                    ..default()
-                }
-            ),
+            TextSection::from_style(TextStyle {
+                font_size: 30.0,
+                color: GOLD.into(),
+                ..default()
+            }),
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
@@ -90,9 +85,7 @@ fn setup(mut commands: Commands){
         }),
         BallText,
     ));
-
 }
-
 
 fn text_update_system(
     diagnostics: Res<DiagnosticsStore>,
@@ -119,8 +112,6 @@ fn text_update_system(
     for mut ball_text in set.p1().iter_mut() {
         ball_text.sections[1].value = format!("{}", ball_query.iter().count());
     }
-
-
 
     // for mut text in &mut fpsQuery {
     //     if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
