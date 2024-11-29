@@ -449,41 +449,9 @@ fn ball_collision_physics_optimised(
     }
 }
 
-fn ball_collision_physics(ballObjectQuery: &mut Query<&mut Ball>) {
-    let mut iter = ballObjectQuery.iter_combinations_mut();
-    let mut have_collisions = true;
-
-    while have_collisions {
-        have_collisions = false;
-
-        while let Some([mut ballObject1, mut ballObject2]) = iter.fetch_next() {
-            if is_ball_collision(&ballObject1, &ballObject2) {
-                have_collisions = true;
-                let ball_rel_vec: Vec3 = ballObject1.pos - ballObject2.pos;
-
-                let rel_distance: f32 = ballObject1.size + ballObject1.size - ball_rel_vec.length();
-                let ball_rel_vec_normalised: Vec3 = ball_rel_vec.normalize();
-                let average_elastivity: f32 =
-                    (ballObject1.elasticity + ballObject2.elasticity) / 2.0;
-
-                let d1: Vec3 = ball_rel_vec_normalised * (rel_distance / 2.0);
-                let d2: Vec3 = ball_rel_vec_normalised * rel_distance * average_elastivity * 10.0;
-
-                ballObject1.pos += d1;
-                ballObject2.pos -= d1;
-
-                ballObject1.velocity += d2;
-                ballObject2.velocity -= d2;
-            }
-        }
-    }
-}
-
 fn update_ball_draw_position(mut ballTransformQuery: Query<(&mut Transform, &Ball)>) {
-    let mut counter: i32 = 0;
     for (mut transform, ballObject) in &mut ballTransformQuery {
         //info!("{}: {}", counter, ballObject.pos);
         transform.translation = ballObject.pos;
-        counter += 1;
     }
 }
