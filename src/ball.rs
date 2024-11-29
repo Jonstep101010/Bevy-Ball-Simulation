@@ -1,5 +1,5 @@
 #[cfg(not(target_arch = "wasm32"))]
-use bevy::sprite::{Wireframe2dConfig, Wireframe2dPlugin};
+use bevy::sprite::Wireframe2dPlugin;
 use bevy::window::PrimaryWindow;
 use bevy::{
     prelude::*,
@@ -217,7 +217,7 @@ fn interact(
     }
 
     if keyInput.pressed(KeyCode::KeyD) {
-        for (ball_entity, mut ball_struct, _) in &mut ballObjectQuery {
+        for (ball_entity, ball_struct, _) in &mut ballObjectQuery {
             let gradient: f32 = ball_struct.pressure_stat / 100.0;
             let color = Color::rgb(gradient * 0.1, gradient, gradient * 0.1);
             commands.entity(ball_entity).insert(materials.add(color));
@@ -275,7 +275,7 @@ fn update_processes(mut ballObjectQuery: Query<&mut Ball>, time: Res<Time>) {
 }
 
 fn update_ball_position(
-    mut ballObjectQuery: &mut Query<&mut Ball>,
+    ballObjectQuery: &mut Query<&mut Ball>,
     time: &Res<Time>,
     iteration_delta: f32,
 ) {
@@ -291,7 +291,7 @@ fn update_gravity_velocity(mut ballObjectQuery: Query<&mut Ball>, time: Res<Time
     }
 }
 
-fn container_collision(mut ballObjectQuery: &mut Query<&mut Ball>) {
+fn container_collision(ballObjectQuery: &mut Query<&mut Ball>) {
     for mut ballObject in ballObjectQuery {
         if ballObject.pos.y - ballObject.size < -HALF_DIM.y {
             ballObject.pos.y = -HALF_DIM.y + ballObject.size;
@@ -315,7 +315,7 @@ fn is_ball_collision(ball1: &Ball, ball2: &Ball) -> bool {
     let distanceVec: Vec3 = ball1.pos - ball2.pos;
     let radiusSum: f32 = ball1.size + ball2.size;
 
-    return distanceVec.length_squared() <= radiusSum * radiusSum;
+    distanceVec.length_squared() <= radiusSum * radiusSum
 }
 
 fn add_to_hashmap<'a>(
@@ -323,7 +323,7 @@ fn add_to_hashmap<'a>(
     hash: i32,
     item: &'a mut Ball,
 ) {
-    hashmap.entry(hash).or_insert_with(Vec::new).push(item);
+    hashmap.entry(hash).or_default().push(item);
 }
 
 fn vec2d_to_index(vector: &IVec3) -> i32 {
@@ -342,7 +342,7 @@ fn vec2d_to_index(vector: &IVec3) -> i32 {
         y = BALL_CHUNK_ARRAY_DIM.y - 1;
     }
 
-    return BALL_CHUNK_ARRAY_DIM.x * y + x;
+    BALL_CHUNK_ARRAY_DIM.x * y + x
 }
 
 const BALL_CHUNK_ARRAY_DIM: IVec3 = IVec3::new(
@@ -354,14 +354,14 @@ const BALL_CHUNK_ARRAY_LENGTH: usize =
     (BALL_CHUNK_ARRAY_DIM.x * BALL_CHUNK_ARRAY_DIM.y + BALL_CHUNK_ARRAY_DIM.x) as usize;
 
 fn in_bounds(vector: &IVec3) -> bool {
-    return vector.x < BALL_CHUNK_ARRAY_DIM.x
+    vector.x < BALL_CHUNK_ARRAY_DIM.x
         && vector.x >= 0
         && vector.y < BALL_CHUNK_ARRAY_DIM.y
-        && vector.y >= 0;
+        && vector.y >= 0
 }
 
 fn ball_collision_physics_optimised(
-    mut ballObjectQuery: &mut Query<&mut Ball>,
+    ballObjectQuery: &mut Query<&mut Ball>,
     // mut query_set: ParamSet<(Query<&mut Ball>, Query<&Ball>)>
 ) {
     let mut ball_chunk_array: [Vec<Ball>; BALL_CHUNK_ARRAY_LENGTH] =
@@ -372,7 +372,7 @@ fn ball_collision_physics_optimised(
         let chunk_pos: IVec3 = screen_pos / CHUNK_SIZE;
         let chunk_index: usize = vec2d_to_index(&chunk_pos) as usize;
 
-        ball_chunk_array[chunk_index].push(ballObject.clone());
+        ball_chunk_array[chunk_index].push(*ballObject);
     }
     // info!("START COLLISION");
     for mut ballObject1 in ballObjectQuery.iter_mut() {
@@ -404,7 +404,7 @@ fn ball_collision_physics_optimised(
                         continue;
                     }
 
-                    if is_ball_collision(&ballObject1, &ballObject2) {
+                    if is_ball_collision(&ballObject1, ballObject2) {
                         let ball_rel_vec: Vec3 = ballObject1.pos - ballObject2.pos;
 
                         if ball_rel_vec.length() == 0.0 {
@@ -449,7 +449,7 @@ fn ball_collision_physics_optimised(
     }
 }
 
-fn ball_collision_physics(mut ballObjectQuery: &mut Query<&mut Ball>) {
+fn ball_collision_physics(ballObjectQuery: &mut Query<&mut Ball>) {
     let mut iter = ballObjectQuery.iter_combinations_mut();
     let mut have_collisions = true;
 
