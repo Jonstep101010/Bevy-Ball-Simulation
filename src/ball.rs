@@ -7,7 +7,10 @@ use bevy::{
 };
 use rand::Rng;
 
-use crate::settings::*;
+use crate::settings::{
+	BALL_SIZE, CHUNK_SIZE, GRAVITY, HALF_DIM, ITERATION_COUNT, ITERATION_DELTA, MOUSE_STRENGTH,
+	REMOVE_RADIUS_SQUARED, SCREENSIZE,
+};
 
 pub struct BallPlugin;
 
@@ -96,7 +99,7 @@ fn spawn_ball(
 				pos: Vec3::new(0.0, 180.0, 0.0),
 				velocity: Vec3::new(10.0, 10.0, 0.0),
 				elasticity: 0.3,
-				id: rand::thread_rng().gen_range(1..=100000000),
+				id: rand::thread_rng().gen_range(1..=100_000_000),
 				pressure_stat: 0.0,
 			},
 			Name::new("Ball"),
@@ -174,7 +177,7 @@ fn interact(
 							pos: ball_spawn_pos,
 							velocity: Vec3::new(0.0, 0.0, 0.0),
 							elasticity: 0.3,
-							id: rand::thread_rng().gen_range(1..=100000000),
+							id: rand::thread_rng().gen_range(1..=100_000_000),
 							pressure_stat: 0.0,
 						},
 						Name::new("Ball"),
@@ -186,25 +189,12 @@ fn interact(
 		info!("Spawned Ball Cluster");
 	}
 
+	// debug position
 	if mouse_input.pressed(MouseButton::Right) {
 		for (_, mut ball_object, _) in &mut ball_object_query {
 			let rel_pos = (rel_position - ball_object.pos).normalize();
-			// info!("{}",relPos);
+			info!("{}", rel_pos);
 			ball_object.velocity += rel_pos * MOUSE_STRENGTH * time.delta_seconds();
-		}
-
-		let mouse_pos_i: IVec3 = position.as_ivec3() / CHUNK_SIZE;
-
-		info!("NEW CHECK");
-		for x in -1..2 {
-			for y in -1..2 {
-				let offset_vec: IVec3 = IVec3::new(x, y, 0);
-				let check_chunk_pos: IVec3 = mouse_pos_i + offset_vec;
-
-				if !in_bounds(&check_chunk_pos) {
-					continue;
-				}
-			}
 		}
 	}
 
@@ -263,14 +253,10 @@ fn update_processes(mut ball_object_query: Query<&mut Ball>, time: Res<Time>) {
 		ball.pressure_stat = 0.0;
 	}
 
-	let mut i = 0;
-
-	while i < ITERATION_COUNT {
+	for _ in 0..ITERATION_COUNT {
 		update_ball_position(&mut ball_object_query, &time, ITERATION_DELTA);
 		container_collision(&mut ball_object_query);
-		// ball_collision_physics(&mut ball_object_query);
-		ball_collision_physics_optimised(&mut ball_object_query);
-		i += 1;
+		ball_collision_physics(&mut ball_object_query);
 	}
 }
 
@@ -330,16 +316,14 @@ const BALL_CHUNK_ARRAY_DIM: IVec3 = IVec3::new(
 );
 const BALL_CHUNK_ARRAY_LENGTH: usize =
 	(BALL_CHUNK_ARRAY_DIM.x * BALL_CHUNK_ARRAY_DIM.y + BALL_CHUNK_ARRAY_DIM.x) as usize;
-use core::range::Range;
+
 fn in_bounds(vector: &IVec3) -> bool {
+	use core::range::Range;
 	Range::from(0..BALL_CHUNK_ARRAY_DIM.x).contains(&vector.x)
 		&& Range::from(0..BALL_CHUNK_ARRAY_DIM.y).contains(&vector.y)
 }
 
-fn ball_collision_physics_optimised(
-	ball_object_query: &mut Query<&mut Ball>,
-	// mut query_set: ParamSet<(Query<&mut Ball>, Query<&Ball>)>
-) {
+fn ball_collision_physics(ball_object_query: &mut Query<&mut Ball>) {
 	let mut ball_chunk_array: [Vec<Ball>; BALL_CHUNK_ARRAY_LENGTH] =
 		std::array::from_fn(|_| Vec::new());
 
@@ -395,7 +379,7 @@ fn ball_collision_physics_optimised(
 							ball_object1.size + ball_object2.size - ball_rel_vec.length();
 						let ball_rel_vec_normalised: Vec3 = ball_rel_vec.normalize();
 						let average_elastivity: f32 =
-							(ball_object1.elasticity + ball_object2.elasticity) / 2.0;
+							f32::midpoint(ball_object1.elasticity, ball_object2.elasticity);
 
 						let d1: Vec3 = ball_rel_vec_normalised * (rel_distance / 2.0);
 						let d2: Vec3 =

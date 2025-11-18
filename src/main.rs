@@ -8,7 +8,7 @@ use bevy::{
 
 use crate::ball::Ball;
 use ball::BallPlugin;
-use settings::*;
+use settings::SCREENSIZE;
 
 // CRATES
 mod ball;
@@ -104,15 +104,15 @@ fn text_update_system(
 
 	// text.sections[1].value = value.expect("REASON").to_string();
 
-	for mut fps_text in set.p0().iter_mut() {
+	for mut fps_text in &mut set.p0() {
 		if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS)
 			&& let Some(value) = fps.smoothed()
 		{
 			// Update the value of the second section
-			fps_text.sections[1].value = format!("{:.2}", value);
+			fps_text.sections[1].value = format!("{value:.2}");
 		}
 	}
-	for mut ball_text in set.p1().iter_mut() {
+	for mut ball_text in &mut set.p1() {
 		ball_text.sections[1].value = format!("{}", ball_query.iter().count());
 	}
 
